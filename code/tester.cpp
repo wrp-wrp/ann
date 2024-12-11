@@ -42,21 +42,21 @@ int main() {
         end = clock();
         query_time += 1.0 * (end - start) / CLOCKS_PER_SEC;
 
-        auto res2 = bf.get_min_kth_dist(a, k);
+        // auto res2 = bf.get_min_kth_dist(a, k);
 
-        double pnt = per / k;
-        for (auto x : res2) {
-            bool ok = 0;
-            for (auto y : res) {
-                if (x == y) {
-                    ok = 1;
-                    break;
-                }
-            }
-            if (ok) {
-                score += pnt;
-            }
-        }
+        // double pnt = per / k;
+        // for (auto x : res2) {
+        //     bool ok = 0;
+        //     for (auto y : res) {
+        //         if (x == y) {
+        //             ok = 1;
+        //             break;
+        //         }
+        //     }
+        //     if (ok) {
+        //         score += pnt;
+        //     }
+        // }
     }
 
     debug("Finished Query! Time: %lf\n", query_time);

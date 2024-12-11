@@ -1,6 +1,9 @@
 #include <bits/stdc++.h>
+#include <omp.h>
 
 namespace BruteForce {
+    #define debug(...) fprintf(stderr, __VA_ARGS__), fflush(stderr)
+
     using i64 = long long;
     using namespace std;
 
@@ -12,6 +15,7 @@ namespace BruteForce {
         }
         vector<i64> get_min_kth_dist(vector<int> q, int K) {
             vector<pair<i64, int> > res;
+            
             for (int i = 0; i < (int) A.size(); i ++) {
                 i64 dist = 0;
                 for (int j = 0; j < (int) q.size(); j ++) {
