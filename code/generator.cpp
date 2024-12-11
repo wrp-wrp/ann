@@ -6,7 +6,7 @@ mt19937 myrand(time(nullptr));
 #define endl '\n'
 
 const int dim = 10; // 维度
-const int N = 5000; // 向量数
+const int N = 2000; // 向量数
 const int MaxVal = 1e4;
 const int Max_Testcase = 50000;
 const int Max_K = 5;
