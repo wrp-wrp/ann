@@ -17,12 +17,12 @@ int main() {
     std :: cin >> n >> dim;
 
     const std :: string FILE_NAME = "data.txt";
-    graph.read_data(FILE_NAME);
+    //graph.read_data(FILE_NAME);
     
     for (int i = 0; i < n; i ++) {
         std :: vector<int> a(dim);
         for (int j = 0; j < dim; j ++) std :: cin >> a[j];
-     //   graph.insert(a); 
+        graph.insert(a); 
         bf.insert(a);
      //   debug("Insert %d\n", i);
     }
@@ -35,6 +35,9 @@ int main() {
     std :: cin >> q; 
     double score = 0, per = 100.0 / q;
     double query_time = 0;
+
+  //  for (int i = 1; i <= 1995; i ++) graph.erase(i);
+
 
     for (int i = 0; i < q; i ++) {
         int k;

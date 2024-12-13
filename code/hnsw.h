@@ -14,20 +14,22 @@ std ::mt19937 rng;
 using std ::string;
 
 const string HERE_FILE_NAME = "data.txt";
-
 const int efConstruction = 100;
+const double alpha = 0.3;
 
 template <typename ValueType = int>
 class hnsw {
   private:
+    using T = ValueType;
+    using ull = unsigned long long;
+    using IT = typename std ::vector<T> ::iterator;
     const int M = 50;
     const int Mmax = M;
-    
     const int Mmax0 = M * 2;
-    
-    using T = ValueType;
-    int enter_point;
     const double Ml = 1 / log(M);
+    int enter_point;
+    int tot;
+    
     struct Layer {
         vector<vector<int>> e;
         void test(int x) {
@@ -36,8 +38,9 @@ class hnsw {
         }
     };
     vector<Layer> layer;
-    vector<vector<T>> A;
-    std :: set<void*> erased;
+    vector<pair<vector<T>, ull> > A;
+    std :: unordered_map<ull, int> id2pos;
+    std :: set<ull> erased;
 
     inline int GetLayer() {
         double r = -log((double)rng() / rng.max());
@@ -47,58 +50,18 @@ class hnsw {
     inline long long dist(const vector<T> &a, const vector<T> &b) {
         auto Ap = a.data(), Bp = b.data(); int len = a.size();
         double res = 0;
-
         //#pragma GCC unroll 16
         for (int i = 0; i < len; i ++)
             res += 1LL * (Ap[i] - Bp[i]) * (Ap[i] - Bp[i]);
         return res;
     }
 
-  public:
-    // hnsw();
-    // hnsw(int len);
-    // ~hnsw();
-    // bool erase(vector<T *> q);
-    // vector<int> search_layer(vector<T> &q, int ep, int ef, int lc);
-    // vector<int> select_neighbors_simple(vector<T> q, vector<int> &C, int m);
-    // vector<int> select_neighbors_heuristic(vector<T> q, vector<int> &C, int m, int lc, int extendCandidates, int keepPrunedConnections);
-    // vector<vector<T>> k_nn_search_no_erase(vector<T> &q, int K, int ef = efConstruction);
-    // vector<vector<T>> k_nn_search(vector<T> &q, int K, int ef = efConstruction);
-    // vector<vector<T> *> k_nn_search_pointer_no_erase(vector<T> &q, int K, int ef = efConstruction);
-    // vector<vector<T> *> k_nn_search_pointer(vector<T> &q, int K, int ef = efConstruction);
-    // vector<double> get_min_kth_dist_no_erase(vector<T> &q, int K);
-    // vector<double> get_min_kth_dist(vector<T> &q, int K);
-    // string save_data();
-    // void read_data(string FILE_NAME);
-    // vector<T> * insert(vector<T> q);
-
-    //--------------------------------------------------------------------------------
-
-    hnsw() {
-        rng.seed(
-            std ::chrono ::steady_clock ::now().time_since_epoch().count());
-        enter_point = 0;
-        layer.resize(1);
+    inline bool IsErased(ull id) {
+        return erased.find(id) != erased.end();
     }
 
-    hnsw(int len) {
-        rng.seed(
-            std ::chrono ::steady_clock ::now().time_since_epoch().count());
-        enter_point = 0;
-        layer.resize(1);
-        A.reserve(len);
-    }
-
-    ~hnsw() {
-        save_data();
-    }
-
-    bool erase(vector<T *> q) {
-        if (erased.find(q) == erased.end()) {
-            return false;
-        }
-        erased.insert(q);
-        return true;
+    inline void EraseIt(ull id) {
+        erased.insert(id);
     }
 
     vector<int> search_layer(vector<T> &q, int ep, int ef, int lc) {
@@ -106,7 +69,7 @@ class hnsw {
         vector<pair<double, int>> C;
         std ::priority_queue<pair<double, int>> W;
         v[ep] = 1;
-        double init_len = dist(q, A[ep]);
+        double init_len = dist(q, A[ep].first);
         W.push({init_len, ep});
         C.push_back({init_len, ep});
 
@@ -115,7 +78,7 @@ class hnsw {
             int c = cit->second;
             C.erase(cit);
             int f = W.top().second;
-            if (dist(q, A[c]) > dist(q, A[f])) {
+            if (dist(q, A[c].first) > dist(q, A[f].first)) {
                 break;
             }
 
@@ -124,8 +87,8 @@ class hnsw {
                 if (v[e] == 0) {
                     v[e] = 1;
                     f = W.top().second;
-                    double d = dist(q, A[e]);
-                    if (d < dist(q, A[f]) || W.size() < ef) {
+                    double d = dist(q, A[e].first);
+                    if (d < dist(q, A[f].first) || W.size() < ef) {
                         C.push_back({d, e});
                         W.push({d, e});
                         if (W.size() > ef) {
@@ -151,7 +114,7 @@ class hnsw {
         vector<pair<double, int>> D;
 
         for (int x : C) {
-            D.push_back({dist(q, A[x]), x});
+            D.push_back({dist(q, A[x].first), x});
         }
 
         std ::nth_element(D.begin(), D.begin() + m, D.end());
@@ -187,8 +150,8 @@ class hnsw {
             int e = *W.begin();
             for (int x : W)
                 if (x != e) {
-                    double d = dist(A[x], q);
-                    if (d < dist(A[e], q)) {
+                    double d = dist(A[x].first, q);
+                    if (d < dist(A[e].first, q)) {
                         e = x;
                     }
                 }
@@ -196,7 +159,7 @@ class hnsw {
 
             bool small_all = 0;
             for (int x : R) {
-                if (dist(A[x], q) > dist(A[e], q)) {
+                if (dist(A[x].first, q) > dist(A[e].first, q)) {
                     small_all = 1;
                     break;
                 }
@@ -214,8 +177,8 @@ class hnsw {
                 int e = *W0.begin();
                 for (int x : W0)
                     if (x != e) {
-                        double d = dist(A[x], q);
-                        if (d < dist(A[e], q)) {
+                        double d = dist(A[x].first, q);
+                        if (d < dist(A[e].first, q)) {
                             e = x;
                         }
                     }
@@ -227,6 +190,70 @@ class hnsw {
         return R;
     }
 
+    bool CheckRebuild() {
+        if (erased.size() > alpha * A.size()) {
+            return 1;
+        }
+        return 0;
+    }
+    
+    void rebuild() {
+        debug("rebuilding !\n");
+        layer.clear();
+        id2pos.clear();
+        auto rec = A;
+        A.clear();
+        enter_point = 0;
+        layer.resize(1);
+
+        for (auto &x : rec) {
+            if (! IsErased(x.second)) {
+                insert(x.first, x.second);
+            }
+        }
+
+        erased.clear();
+        debug("rebuild finished !\n");
+    }
+
+  public:
+
+    //--------------------------------------------------------------------------------
+    
+
+    hnsw() {
+        tot = 0;
+        rng.seed(
+            std ::chrono ::steady_clock ::now().time_since_epoch().count());
+        enter_point = 0;
+        layer.resize(1);
+    }
+
+    hnsw(int len) {
+        tot = 0;
+        rng.seed(
+            std ::chrono ::steady_clock ::now().time_since_epoch().count());
+        enter_point = 0;
+        layer.resize(1);
+        A.reserve(len);
+    }
+
+    ~hnsw() {
+        //save_data();
+    }
+
+    bool erase(const ull id) {
+
+        if (IsErased(id)) {
+            return 0;
+        }
+        erased.insert(id);
+        if (CheckRebuild()) {
+            rebuild();
+        }
+        return true;
+    }
+    
     vector<vector<T>> k_nn_search_no_erase(vector<T> &q, int K, int ef = efConstruction) {
         vector<int> W;
         int ep = 0;
@@ -238,7 +265,7 @@ class hnsw {
         W.resize(K);
         vector<vector<T>> res;
         for (int x : W) {
-            res.push_back(A[x]);
+            res.push_back(A[x].first);
         }
         return res;
     }
@@ -246,12 +273,18 @@ class hnsw {
     vector<vector<T>> k_nn_search(vector<T> &q, int K, int ef = efConstruction) {
         vector<vector<T>> res;
         int nowcnt = K;
+        if (A.size() < K) {
+            for (auto &x : A) {
+                if (! IsErased(x.second)) res.push_back(x.first);
+            }
+            return res;
+        }
         while (1) {
             auto res2 = k_nn_search_no_erase(q, nowcnt, ef);
 
             int cnt = 0;
             for (auto x : res2) {
-                if (erased.find(&x) == erased.end()) {
+                if (! IsErased(A[x].second)) {
                     res.push_back(x);
                     cnt++;
                 }
@@ -269,7 +302,7 @@ class hnsw {
         return res;
     }
 
-    vector<vector<T> *> k_nn_search_pointer_no_erase(vector<T> &q, int K, int ef = efConstruction) {
+    vector<ull> k_nn_search_cookie_no_erase(vector<T> &q, int K, int ef = efConstruction) {
         vector<int> W;
         int ep = 0;
         for (int i = layer.size() - 1; i >= 1; i--) {
@@ -278,22 +311,28 @@ class hnsw {
         }
         W = search_layer(q, ep, ef, 0);
         W.resize(K);
-        vector<vector<T> *> res;
+        vector<ull> res;
         for (int x : W) {
-            res.push_back(&A[x]);
+            res.push_back(A[x].second);
         }
         return res;
     }
 
-    vector<vector<T> *> k_nn_search_pointer(vector<T> &q, int K, int ef = efConstruction) {
-        vector<vector<T> *> res;
+    vector<ull> k_nn_search_cookie(vector<T> &q, int K, int ef = efConstruction) {
+        vector<ull> res;
+        if (A.size() < K) {
+            for (auto &x : A) {
+                if (! IsErased(x.second)) res.push_back(x.second);
+            }
+            return res;
+        }
         int nowcnt = K;
         while (1) {
-            auto res2 = k_nn_search_pointer_no_erase(q, nowcnt, ef);
+            auto res2 = k_nn_search_cookie_no_erase(q, nowcnt, ef);
 
             int cnt = 0;
             for (auto x : res2) {
-                if (erased.find(x) == erased.end()) {
+                if (! IsErased(x)) {
                     res.push_back(x);
                     cnt++;
                 }
@@ -303,6 +342,7 @@ class hnsw {
             }
 
             if (cnt == K) {
+                res = std ::move(res2);
                 break;
             }
 
@@ -312,52 +352,73 @@ class hnsw {
     }
 
     vector<double> get_min_kth_dist_no_erase(vector<T> &q, int K) {
-        auto res = k_nn_search(q, K, efConstruction);
+        auto res = k_nn_search_cookie(q, K, efConstruction);
         vector<double> res2;
         for (auto x : res) {
-            res2.push_back(dist(q, x));
+            res2.push_back(dist(q, A[id2pos[x]].first));
         }
         return res2;
     }
 
     vector<double> get_min_kth_dist(vector<T> &q, int K) {
-        auto res = k_nn_search_pointer(q, K, efConstruction);
-        vector<double> res2;
-        for (auto x : res) {
-            res2.push_back(dist(q, *x));
+        //debug("get_min_kth_dist\n");
+        //debug("A.size = %d\n", A.size());
+        int nowcnt = K;
+        while (1) {
+            auto res = k_nn_search_cookie(q, K, efConstruction);
+            int cnt = 0;
+            vector<double> res2;
+            for (auto x : res) {
+                if (! IsErased(x)) {
+                    res2.push_back(dist(q, A[id2pos[x]].first));
+                    cnt++;
+                }
+                if (cnt == K) {
+                    break;
+                }
+            }
+            if (cnt == K) {
+                return res2;
+            }
+            nowcnt += K;
+
         }
-        return res2;
+        assert(0);
+        return {};
     }
 
     string save_data() {
         debug("Saving Data...\n");
         const std :: string FILE_NAME = HERE_FILE_NAME;
         std ::ofstream out(FILE_NAME);
-        out << A.size() << " " << A[0].size() << "\n"; // n dim
+        out << A.size() << " " << A[0].first.size() << "\n";
         for (auto &x : A) {
-            for (auto y : x) {
+            for (auto y : x.first) {
                 out << y << " ";
             }
-            out << "\n";
-        } // data
-        out << layer.size() << "\n"; // layer.size()
+            out << x.second << "\n";
+        }
+        out << erased.size() << "\n";
+        for (auto x : erased) {
+            out << x << "\n";
+        }
+        out << layer.size() << "\n";
         for (auto &x : layer) {
-            out << x.e.size() << "\n"; // layer.e.size()
+            out << x.e.size() << "\n";
             for (auto &y : x.e) {
-                out << y.size() << "\n"; // layer.e[i].size()
+                out << y.size() << "\n";
                 for (auto z : y) {
                     out << z << " ";
-                } // layer.e[i]
+                }
                 out << "\n";
             }
         }
-        out << enter_point << "\n"; // enter_point
-        out << erased.size() << "\n"; // erased.size()
-        for (auto x : erased) {
-            out << (unsigned long long) x << " ";
+        out << enter_point << " " << tot << "\n";
+        out << id2pos.size() << "\n";
+        for (auto &x : id2pos) {
+            out << x.first << " " << x.second << "\n";
         }
-        out << "\n"; // erased
-
+        
         out.close();
 
         debug("Data Saved!\n");
@@ -370,46 +431,64 @@ class hnsw {
         int n, dim;
         in >> n >> dim;
         A.resize(n);
-        for (auto &x : A) {
-            x.resize(dim);
-            for (auto &y : x) {
-                in >> y;
+        for (int i = 0; i < n; i++) {
+            A[i].first.resize(dim);
+            for (int j = 0; j < dim; j++) {
+                in >> A[i].first[j];
             }
+            in >> A[i].second;
+            id2pos[A[i].second] = i;
         }
-        int layer_size;
-        in >> layer_size;
-        layer.resize(layer_size);
-        for (auto &x : layer) {
-            int e_size;
-            in >> e_size;
-            x.e.resize(e_size);
-            for (auto &y : x.e) {
-                int y_size;
-                in >> y_size;
-                y.resize(y_size);
-                for (auto &z : y) {
-                    in >> z;
+        int m;
+        in >> m;
+        for (int i = 0; i < m; i++) {
+            ull x;
+            in >> x;
+            erased.insert(x);
+        }
+        int l;
+        in >> l;
+        layer.resize(l);
+        for (int i = 0; i < l; i++) {
+            int s;
+            in >> s;
+            layer[i].e.resize(s);
+            for (int j = 0; j < s; j++) {
+                int t;
+                in >> t;
+                layer[i].e[j].resize(t);
+                for (int k = 0; k < t; k++) {
+                    in >> layer[i].e[j][k];
                 }
             }
         }
-        in >> enter_point;
-        int erased_size;
-        in >> erased_size;
-        erased.clear();
-        for (int i = 0; i < erased_size; i++) {
-            unsigned long long x;
-            in >> x;
-            erased.insert((void *) x);
+        in >> enter_point >> tot;
+        int sz;
+        in >> sz;
+        for (int i = 0; i < sz; i++) {
+            ull x;
+            int y;
+            in >> x >> y;
+            id2pos[x] = y;
         }
+        
         in.close();
         debug("Data Read!\n");
     }
 
-    vector<T> * insert(vector<T> q) {
-        A.push_back(q);
-        auto ret = &A[A.size() - 1];
+    ull insert(vector<T> &q, ull Cookie = 0) {  // cookie = 0 表示 cookie 未知
+        ull cookie;
+        if (! Cookie)
+            cookie = ++ tot;
+        else
+            cookie = Cookie;
+        A.push_back( {q, cookie} );
+
+        id2pos[cookie] = A.size() - 1;
+        
         if (A.size() == 1) {
-            return ret;
+            
+            return cookie;
         }
 
         vector<int> W;
@@ -444,7 +523,7 @@ class hnsw {
                 auto &eConn = layer[lc].e[e];
                 if (eConn.size() > Mmax) {
                     eConn =
-                        std ::move(select_neighbors_simple(A[e], eConn, Mmax));
+                        std ::move(select_neighbors_simple(A[e].first, eConn, Mmax));
                 }
             }
             ep = W[0];
@@ -452,7 +531,8 @@ class hnsw {
         if (l > L) {
             enter_point = A.size() - 1;
         }
-        return ret;
+
+        return cookie;
     }
 };
 
