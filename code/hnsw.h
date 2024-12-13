@@ -387,9 +387,9 @@ class hnsw {
         return {};
     }
 
-    string save_data() {
+    void save_data(string FILE_NAME) {
         debug("Saving Data...\n");
-        const std :: string FILE_NAME = HERE_FILE_NAME;
+        //const std :: string FILE_NAME = HERE_FILE_NAME;
         std ::ofstream out(FILE_NAME);
         out << A.size() << " " << A[0].first.size() << "\n";
         for (auto &x : A) {
@@ -422,7 +422,7 @@ class hnsw {
         out.close();
 
         debug("Data Saved!\n");
-        return FILE_NAME;
+        return void();
     }
 
     void read_data(string FILE_NAME) {
