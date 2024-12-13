@@ -69,6 +69,7 @@
 
 #include <vector>
 #include <cstddef>
+#include <string>
 #include "hnsw.h"
 
 namespace KNNs {
@@ -90,6 +91,8 @@ public:
     std::vector<ull> search(const std::vector<T>& vec, std::size_t k) const;
     std::size_t length() const;
     std::size_t size() const;
+    string save_data() const;
+    void read_data(string s);
 };
 
 template<typename ValueType> KNN<ValueType>::KNN(std::size_t len) {
@@ -124,6 +127,14 @@ template<typename ValueType> std::size_t KNN<ValueType>::length() const {
 
 template<typename ValueType> std::size_t KNN<ValueType>::size() const {
     return hn.A.size();
+}
+
+template<typename ValueType> string KNN<ValueType>::save_data() const {
+    return hn.save_data();
+}
+
+template<typename ValueType> void KNN<ValueType>::read_data(string s) {
+    hn.read_data(s);
 }
 
 } // namespace KNNs
