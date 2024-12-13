@@ -11,11 +11,20 @@ using std ::pair;
 using std ::vector;
 
 std ::mt19937 rng;
+using std ::string;
 
-template <typename ValueType = int, typename ReturnType = double, int M = 50,
-          int Mmax = M, int efConstruction = 100, int Mmax0 = M * 2>
+const string HERE_FILE_NAME = "data.txt";
+
+const int efConstruction = 100;
+
+template <typename ValueType = int>
 class hnsw {
   private:
+    const int M = 50;
+    const int Mmax = M;
+    
+    const int Mmax0 = M * 2;
+    
     using T = ValueType;
     int enter_point;
     const double Ml = 1 / log(M);
@@ -28,14 +37,16 @@ class hnsw {
     };
     vector<Layer> layer;
     vector<vector<T>> A;
+    std :: set<void*> erased;
+
     inline int GetLayer() {
         double r = -log((double)rng() / rng.max());
         assert(Ml * r >= 0);
         return (int)(Ml * r);
     }
-    inline ReturnType dist(const vector<T> &a, const vector<T> &b) {
+    inline long long dist(const vector<T> &a, const vector<T> &b) {
         auto Ap = a.data(), Bp = b.data(); int len = a.size();
-        ReturnType res = 0;
+        double res = 0;
 
         //#pragma GCC unroll 16
         for (int i = 0; i < len; i ++)
@@ -45,13 +56,21 @@ class hnsw {
 
   public:
     // hnsw();
-    // vector<int> search_layer(vector<T> q, int ep, int ef, int lc);
-    // vector<int> select_neighbors_simple(vector<T> q, vector<int> C, int m);
-    // vector<int> select_neighbors_heuristic(vector<T> q, vector<int> C, int m,
-    // int lc, int extendCandidates, int keepPrunedConnections);
-    // vector<vector<T> > k_nn_search(vector<T> q, int K, int ef);
-    // vector<ReturnType> get_min_kth_dist(vector<T> q, int K);
-    // void insert(vector<T> q);
+    // hnsw(int len);
+    // ~hnsw();
+    // bool erase(vector<T *> q);
+    // vector<int> search_layer(vector<T> &q, int ep, int ef, int lc);
+    // vector<int> select_neighbors_simple(vector<T> q, vector<int> &C, int m);
+    // vector<int> select_neighbors_heuristic(vector<T> q, vector<int> &C, int m, int lc, int extendCandidates, int keepPrunedConnections);
+    // vector<vector<T>> k_nn_search_no_erase(vector<T> &q, int K, int ef = efConstruction);
+    // vector<vector<T>> k_nn_search(vector<T> &q, int K, int ef = efConstruction);
+    // vector<vector<T> *> k_nn_search_pointer_no_erase(vector<T> &q, int K, int ef = efConstruction);
+    // vector<vector<T> *> k_nn_search_pointer(vector<T> &q, int K, int ef = efConstruction);
+    // vector<double> get_min_kth_dist_no_erase(vector<T> &q, int K);
+    // vector<double> get_min_kth_dist(vector<T> &q, int K);
+    // string save_data();
+    // void read_data(string FILE_NAME);
+    // vector<T> * insert(vector<T> q);
 
     //--------------------------------------------------------------------------------
 
@@ -62,12 +81,32 @@ class hnsw {
         layer.resize(1);
     }
 
+    hnsw(int len) {
+        rng.seed(
+            std ::chrono ::steady_clock ::now().time_since_epoch().count());
+        enter_point = 0;
+        layer.resize(1);
+        A.reserve(len);
+    }
+
+    ~hnsw() {
+        save_data();
+    }
+
+    bool erase(vector<T *> q) {
+        if (erased.find(q) == erased.end()) {
+            return false;
+        }
+        erased.insert(q);
+        return true;
+    }
+
     vector<int> search_layer(vector<T> &q, int ep, int ef, int lc) {
         std ::unordered_map<int, int> v;
-        vector<pair<ReturnType, int>> C;
-        std ::priority_queue<pair<ReturnType, int>> W;
+        vector<pair<double, int>> C;
+        std ::priority_queue<pair<double, int>> W;
         v[ep] = 1;
-        ReturnType init_len = dist(q, A[ep]);
+        double init_len = dist(q, A[ep]);
         W.push({init_len, ep});
         C.push_back({init_len, ep});
 
@@ -85,7 +124,7 @@ class hnsw {
                 if (v[e] == 0) {
                     v[e] = 1;
                     f = W.top().second;
-                    ReturnType d = dist(q, A[e]);
+                    double d = dist(q, A[e]);
                     if (d < dist(q, A[f]) || W.size() < ef) {
                         C.push_back({d, e});
                         W.push({d, e});
@@ -109,7 +148,7 @@ class hnsw {
         if (C.size() <= m) {
             return C;
         }
-        vector<pair<ReturnType, int>> D;
+        vector<pair<double, int>> D;
 
         for (int x : C) {
             D.push_back({dist(q, A[x]), x});
@@ -188,7 +227,7 @@ class hnsw {
         return R;
     }
 
-    vector<vector<T>> k_nn_search(vector<T> &q, int K, int ef) {
+    vector<vector<T>> k_nn_search_no_erase(vector<T> &q, int K, int ef = efConstruction) {
         vector<int> W;
         int ep = 0;
         for (int i = layer.size() - 1; i >= 1; i--) {
@@ -204,20 +243,173 @@ class hnsw {
         return res;
     }
 
-    vector<ReturnType> get_min_kth_dist(vector<T> &q, int K) {
-        auto res = k_nn_search(q, K, K * 4);
-        vector<ReturnType> res2;
+    vector<vector<T>> k_nn_search(vector<T> &q, int K, int ef = efConstruction) {
+        vector<vector<T>> res;
+        int nowcnt = K;
+        while (1) {
+            auto res2 = k_nn_search_no_erase(q, nowcnt, ef);
+
+            int cnt = 0;
+            for (auto x : res2) {
+                if (erased.find(&x) == erased.end()) {
+                    res.push_back(x);
+                    cnt++;
+                }
+                if (cnt == K) {
+                    break;
+                }
+            }
+
+            if (cnt == K) {
+                break;
+            }
+
+            nowcnt += K;
+        }
+        return res;
+    }
+
+    vector<vector<T> *> k_nn_search_pointer_no_erase(vector<T> &q, int K, int ef = efConstruction) {
+        vector<int> W;
+        int ep = 0;
+        for (int i = layer.size() - 1; i >= 1; i--) {
+            W = search_layer(q, ep, ef, i);
+            ep = W[0];
+        }
+        W = search_layer(q, ep, ef, 0);
+        W.resize(K);
+        vector<vector<T> *> res;
+        for (int x : W) {
+            res.push_back(&A[x]);
+        }
+        return res;
+    }
+
+    vector<vector<T> *> k_nn_search_pointer(vector<T> &q, int K, int ef = efConstruction) {
+        vector<vector<T> *> res;
+        int nowcnt = K;
+        while (1) {
+            auto res2 = k_nn_search_pointer_no_erase(q, nowcnt, ef);
+
+            int cnt = 0;
+            for (auto x : res2) {
+                if (erased.find(x) == erased.end()) {
+                    res.push_back(x);
+                    cnt++;
+                }
+                if (cnt == K) {
+                    break;
+                }
+            }
+
+            if (cnt == K) {
+                break;
+            }
+
+            nowcnt += K;
+        }
+        return res;
+    }
+
+    vector<double> get_min_kth_dist_no_erase(vector<T> &q, int K) {
+        auto res = k_nn_search(q, K, efConstruction);
+        vector<double> res2;
         for (auto x : res) {
             res2.push_back(dist(q, x));
         }
         return res2;
     }
 
-    void insert(vector<T> q) {
-        A.push_back(q);
+    vector<double> get_min_kth_dist(vector<T> &q, int K) {
+        auto res = k_nn_search_pointer(q, K, efConstruction);
+        vector<double> res2;
+        for (auto x : res) {
+            res2.push_back(dist(q, *x));
+        }
+        return res2;
+    }
 
+    string save_data() {
+        debug("Saving Data...\n");
+        const std :: string FILE_NAME = HERE_FILE_NAME;
+        std ::ofstream out(FILE_NAME);
+        out << A.size() << " " << A[0].size() << "\n"; // n dim
+        for (auto &x : A) {
+            for (auto y : x) {
+                out << y << " ";
+            }
+            out << "\n";
+        } // data
+        out << layer.size() << "\n"; // layer.size()
+        for (auto &x : layer) {
+            out << x.e.size() << "\n"; // layer.e.size()
+            for (auto &y : x.e) {
+                out << y.size() << "\n"; // layer.e[i].size()
+                for (auto z : y) {
+                    out << z << " ";
+                } // layer.e[i]
+                out << "\n";
+            }
+        }
+        out << enter_point << "\n"; // enter_point
+        out << erased.size() << "\n"; // erased.size()
+        for (auto x : erased) {
+            out << (unsigned long long) x << " ";
+        }
+        out << "\n"; // erased
+
+        out.close();
+
+        debug("Data Saved!\n");
+        return FILE_NAME;
+    }
+
+    void read_data(string FILE_NAME) {
+        debug("Reading Data...\n");
+        std ::ifstream in(FILE_NAME);
+        int n, dim;
+        in >> n >> dim;
+        A.resize(n);
+        for (auto &x : A) {
+            x.resize(dim);
+            for (auto &y : x) {
+                in >> y;
+            }
+        }
+        int layer_size;
+        in >> layer_size;
+        layer.resize(layer_size);
+        for (auto &x : layer) {
+            int e_size;
+            in >> e_size;
+            x.e.resize(e_size);
+            for (auto &y : x.e) {
+                int y_size;
+                in >> y_size;
+                y.resize(y_size);
+                for (auto &z : y) {
+                    in >> z;
+                }
+            }
+        }
+        in >> enter_point;
+        int erased_size;
+        in >> erased_size;
+        erased.clear();
+        for (int i = 0; i < erased_size; i++) {
+            unsigned long long x;
+            in >> x;
+            erased.insert((void *) x);
+        }
+        in.close();
+        debug("Data Read!\n");
+    }
+
+    vector<T> * insert(vector<T> q) {
+        A.push_back(q);
+        auto ret = &A[A.size() - 1];
         if (A.size() == 1) {
-            return;
+            return ret;
         }
 
         vector<int> W;
@@ -260,6 +452,7 @@ class hnsw {
         if (l > L) {
             enter_point = A.size() - 1;
         }
+        return ret;
     }
 };
 
