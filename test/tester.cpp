@@ -1,5 +1,5 @@
 #include <bits/stdc++.h>
-#include "hnsw.h"
+#include "../hnsw/hnsw.h"
 #include "brute.h"
 
 #define debug(...) fprintf(stderr, __VA_ARGS__), fflush(stderr)
@@ -24,7 +24,6 @@ int main() {
         for (int j = 0; j < dim; j ++) std :: cin >> a[j];
         graph.insert(a); 
         bf.insert(a);
-     //   debug("Insert %d\n", i);
     }
 
     clock_t end = clock();
@@ -37,7 +36,6 @@ int main() {
     double query_time = 0;
 
   //  for (int i = 1; i <= 1995; i ++) graph.erase(i);
-
 
     for (int i = 0; i < q; i ++) {
         int k;

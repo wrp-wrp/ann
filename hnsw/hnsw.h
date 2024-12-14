@@ -9,11 +9,9 @@ using std ::cin;
 using std ::cout;
 using std ::pair;
 using std ::vector;
-
-
+using std ::mt19937;
 using std ::string;
 
-const string HERE_FILE_NAME = "data.txt";
 const int efConstruction = 100;
 const double alpha = 0.3;
 
@@ -217,6 +215,79 @@ class hnsw {
         debug("rebuild finished !\n");
     }
 
+    vector<vector<T>> k_nn_search(const vector<T> &q, int K, int ef = efConstruction) {
+        vector<vector<T>> res;
+        int nowcnt = K;
+        if (A.size() < K) {
+            for (auto &x : A) {
+                if (! IsErased(x.second)) res.push_back(x.first);
+            }
+            return res;
+        }
+        while (1) {
+            auto res2 = k_nn_search_no_erase(q, nowcnt, ef);
+
+            int cnt = 0;
+            for (auto x : res2) {
+                if (! IsErased(A[x].second)) {
+                    res.push_back(x);
+                    cnt++;
+                }
+                if (cnt == K) {
+                    break;
+                }
+            }
+
+            if (cnt == K) {
+                break;
+            }
+
+            nowcnt += K;
+        }
+        return res;
+    }
+
+    vector<vector<T>> k_nn_search_no_erase(const vector<T> &q, int K, int ef = efConstruction) {
+        vector<int> W;
+        int ep = 0;
+        for (int i = layer.size() - 1; i >= 1; i--) {
+            W = search_layer(q, ep, ef, i);
+            ep = W[0];
+        }
+        W = search_layer(q, ep, ef, 0);
+        W.resize(K);
+        vector<vector<T>> res;
+        for (int x : W) {
+            res.push_back(A[x].first);
+        }
+        return res;
+    }
+
+    vector<ull> k_nn_search_cookie_no_erase(const vector<T> &q, int K, int ef = efConstruction) {
+        vector<int> W;
+        int ep = 0;
+        for (int i = layer.size() - 1; i >= 1; i--) {
+            W = search_layer(q, ep, ef, i);
+            ep = W[0];
+        }
+        W = search_layer(q, ep, ef, 0);
+        W.resize(K);
+        vector<ull> res;
+        for (int x : W) {
+            res.push_back(A[x].second);
+        }
+        return res;
+    }
+
+    vector<double> get_min_kth_dist_no_erase(const vector<T> &q, int K) {
+        auto res = k_nn_search_cookie(q, K, efConstruction);
+        vector<double> res2;
+        for (auto x : res) {
+            res2.push_back(dist(q, A[id2pos[x]].first));
+        }
+        return res2;
+    }
+
   public:
 
     //--------------------------------------------------------------------------------
@@ -254,70 +325,8 @@ class hnsw {
         }
         return true;
     }
+
     
-    vector<vector<T>> k_nn_search_no_erase(const vector<T> &q, int K, int ef = efConstruction) {
-        vector<int> W;
-        int ep = 0;
-        for (int i = layer.size() - 1; i >= 1; i--) {
-            W = search_layer(q, ep, ef, i);
-            ep = W[0];
-        }
-        W = search_layer(q, ep, ef, 0);
-        W.resize(K);
-        vector<vector<T>> res;
-        for (int x : W) {
-            res.push_back(A[x].first);
-        }
-        return res;
-    }
-
-    vector<vector<T>> k_nn_search(const vector<T> &q, int K, int ef = efConstruction) {
-        vector<vector<T>> res;
-        int nowcnt = K;
-        if (A.size() < K) {
-            for (auto &x : A) {
-                if (! IsErased(x.second)) res.push_back(x.first);
-            }
-            return res;
-        }
-        while (1) {
-            auto res2 = k_nn_search_no_erase(q, nowcnt, ef);
-
-            int cnt = 0;
-            for (auto x : res2) {
-                if (! IsErased(A[x].second)) {
-                    res.push_back(x);
-                    cnt++;
-                }
-                if (cnt == K) {
-                    break;
-                }
-            }
-
-            if (cnt == K) {
-                break;
-            }
-
-            nowcnt += K;
-        }
-        return res;
-    }
-
-    vector<ull> k_nn_search_cookie_no_erase(const vector<T> &q, int K, int ef = efConstruction) {
-        vector<int> W;
-        int ep = 0;
-        for (int i = layer.size() - 1; i >= 1; i--) {
-            W = search_layer(q, ep, ef, i);
-            ep = W[0];
-        }
-        W = search_layer(q, ep, ef, 0);
-        W.resize(K);
-        vector<ull> res;
-        for (int x : W) {
-            res.push_back(A[x].second);
-        }
-        return res;
-    }
 
     vector<ull> k_nn_search_cookie(const vector<T> &q, int K, int ef = efConstruction) {
         vector<ull> res;
@@ -352,18 +361,9 @@ class hnsw {
         return res;
     }
 
-    vector<double> get_min_kth_dist_no_erase(const vector<T> &q, int K) {
-        auto res = k_nn_search_cookie(q, K, efConstruction);
-        vector<double> res2;
-        for (auto x : res) {
-            res2.push_back(dist(q, A[id2pos[x]].first));
-        }
-        return res2;
-    }
+    
 
     vector<double> get_min_kth_dist(const vector<T> &q, int K) {
-        //debug("get_min_kth_dist\n");
-        //debug("A.size = %d\n", A.size());
         int nowcnt = K;
         while (1) {
             auto res = k_nn_search_cookie(q, K, efConstruction);
@@ -390,7 +390,6 @@ class hnsw {
 
     void save_data(string FILE_NAME) {
         debug("Saving Data...\n");
-        //const std :: string FILE_NAME = HERE_FILE_NAME;
         std ::ofstream out(FILE_NAME);
         out << A.size() << " " << A[0].first.size() << "\n";
         for (auto &x : A) {
@@ -539,4 +538,4 @@ class hnsw {
 
 } // namespace Hnsw
 
-using Hnsw ::hnsw;
+using Hnsw :: hnsw;
