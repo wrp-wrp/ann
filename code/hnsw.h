@@ -47,7 +47,7 @@ class hnsw {
         assert(Ml * r >= 0);
         return (int)(Ml * r);
     }
-    inline long long dist(const vector<T> &a, const vector<T> &b) {
+    inline double dist(const vector<T> &a, const vector<T> &b) {
         auto Ap = a.data(), Bp = b.data(); int len = a.size();
         double res = 0;
         //#pragma GCC unroll 16
@@ -64,7 +64,7 @@ class hnsw {
         erased.insert(id);
     }
 
-    vector<int> search_layer(vector<T> &q, int ep, int ef, int lc) {
+    vector<int> search_layer(const vector<T> &q, int ep, int ef, int lc) {
         std ::unordered_map<int, int> v;
         vector<pair<double, int>> C;
         std ::priority_queue<pair<double, int>> W;
@@ -107,7 +107,7 @@ class hnsw {
         return res;
     }
 
-    vector<int> select_neighbors_simple(vector<T> &q, vector<int> &C, int m) {
+    vector<int> select_neighbors_simple(const vector<T> &q, vector<int> &C, int m) {
         if (C.size() <= m) {
             return C;
         }
@@ -254,7 +254,7 @@ class hnsw {
         return true;
     }
     
-    vector<vector<T>> k_nn_search_no_erase(vector<T> &q, int K, int ef = efConstruction) {
+    vector<vector<T>> k_nn_search_no_erase(const vector<T> &q, int K, int ef = efConstruction) {
         vector<int> W;
         int ep = 0;
         for (int i = layer.size() - 1; i >= 1; i--) {
@@ -270,7 +270,7 @@ class hnsw {
         return res;
     }
 
-    vector<vector<T>> k_nn_search(vector<T> &q, int K, int ef = efConstruction) {
+    vector<vector<T>> k_nn_search(const vector<T> &q, int K, int ef = efConstruction) {
         vector<vector<T>> res;
         int nowcnt = K;
         if (A.size() < K) {
@@ -302,7 +302,7 @@ class hnsw {
         return res;
     }
 
-    vector<ull> k_nn_search_cookie_no_erase(vector<T> &q, int K, int ef = efConstruction) {
+    vector<ull> k_nn_search_cookie_no_erase(const vector<T> &q, int K, int ef = efConstruction) {
         vector<int> W;
         int ep = 0;
         for (int i = layer.size() - 1; i >= 1; i--) {
@@ -318,7 +318,7 @@ class hnsw {
         return res;
     }
 
-    vector<ull> k_nn_search_cookie(vector<T> &q, int K, int ef = efConstruction) {
+    vector<ull> k_nn_search_cookie(const vector<T> &q, int K, int ef = efConstruction) {
         vector<ull> res;
         if (A.size() < K) {
             for (auto &x : A) {
@@ -351,7 +351,7 @@ class hnsw {
         return res;
     }
 
-    vector<double> get_min_kth_dist_no_erase(vector<T> &q, int K) {
+    vector<double> get_min_kth_dist_no_erase(const vector<T> &q, int K) {
         auto res = k_nn_search_cookie(q, K, efConstruction);
         vector<double> res2;
         for (auto x : res) {
@@ -360,7 +360,7 @@ class hnsw {
         return res2;
     }
 
-    vector<double> get_min_kth_dist(vector<T> &q, int K) {
+    vector<double> get_min_kth_dist(const vector<T> &q, int K) {
         //debug("get_min_kth_dist\n");
         //debug("A.size = %d\n", A.size());
         int nowcnt = K;
@@ -476,7 +476,7 @@ class hnsw {
         debug("Data Read!\n");
     }
 
-    ull insert(vector<T> &q, ull Cookie = 0) {  // cookie = 0 表示 cookie 未知
+    ull insert(const vector<T> &q, ull Cookie = 0) {  // cookie = 0 表示 cookie 未知
         ull cookie;
         if (! Cookie)
             cookie = ++ tot;

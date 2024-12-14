@@ -27,7 +27,7 @@ int main() {
         int k = myrand() % Max_K + 1;
         cout << k << endl;
         for (int j = 0; j < dim; j++) {
-            cout << myrand() % MaxVal << " ";
+            cout << myrand() % MaxVal * 1.0 /  MaxVal << " ";
         }
         cout << endl;
     }
