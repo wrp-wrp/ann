@@ -10,7 +10,7 @@ using std ::cout;
 using std ::pair;
 using std ::vector;
 
-std ::mt19937 rng;
+
 using std ::string;
 
 const string HERE_FILE_NAME = "data.txt";
@@ -29,6 +29,7 @@ class hnsw {
     const double Ml = 1 / log(M);
     int enter_point;
     int tot;
+    std ::mt19937 rng;
     
     struct Layer {
         vector<vector<int>> e;
