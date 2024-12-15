@@ -35,3 +35,11 @@
 ## test
 
 test 部分在随机数据下与朴素循环算法进行正确性比对。应当注意比对应使用 `int` 类型。
+
+
+
+## 引用
+
+算法在如下项目中被使用 ：
+
++ [一个简单的文件查询系统](https://github.com/FutureHasTomorrow/Vectri/tree/main)
