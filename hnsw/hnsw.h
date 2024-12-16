@@ -37,9 +37,9 @@ class hnsw {
         }
     };
     vector<Layer> layer;
-    vector<pair<vector<T>, ull> > A;
+    vector<pair<vector<T>, ull> > VectorPool;
     std :: unordered_map<ull, int> id2pos;
-    std :: set<ull> erased;
+    std :: set<ull> ErasedCookie;
 
     inline int GetLayer() {
         double r = -log((double)rng() / rng.max());
@@ -55,65 +55,65 @@ class hnsw {
         return res;
     }
 
-    inline bool IsErased(ull id) {
-        return erased.find(id) != erased.end();
+    inline bool IsErased(ull cookie) {
+        return ErasedCookie.find(cookie) != ErasedCookie.end();
     }
 
-    inline void EraseIt(ull id) {
-        erased.insert(id);
+    inline void EraseIt(ull cookie) {
+        ErasedCookie.insert(cookie);
     }
 
-    vector<int> search_layer(const vector<T> &q, int ep, int ef, int lc) {
-        std ::unordered_map<int, int> v;
-        vector<pair<double, int>> C;
-        std ::priority_queue<pair<double, int>> W;
-        v[ep] = 1;
-        double init_len = dist(q, A[ep].first);
-        W.push({init_len, ep});
-        C.push_back({init_len, ep});
+    vector<int> search_layer(const vector<T> &QueryVector, int EnterPoint, int ef, int LayerIndex) {
+        std ::unordered_map<int, int> Visited;
+        vector<pair<double, int>> Candidator;
+        std ::priority_queue<pair<double, int>> NearestNeighbors;
+        Visited[EnterPoint] = 1;
+        double init_len = dist(QueryVector, VectorPool[EnterPoint].first);
+        NearestNeighbors.push({init_len, EnterPoint});
+        Candidator.push_back({init_len, EnterPoint});
 
-        while (C.size() > 0) {
-            auto cit = std ::min_element(C.begin(), C.end());
+        while (Candidator.size() > 0) {
+            auto cit = std ::min_element(Candidator.begin(), Candidator.end());
             int c = cit->second;
-            C.erase(cit);
-            int f = W.top().second;
-            if (dist(q, A[c].first) > dist(q, A[f].first)) {
+            Candidator.erase(cit);
+            int f = NearestNeighbors.top().second;
+            if (dist(QueryVector, VectorPool[c].first) > dist(QueryVector, VectorPool[f].first)) {
                 break;
             }
 
-            layer[lc].test(c);
-            for (int e : layer[lc].e[c]) {
-                if (v[e] == 0) {
-                    v[e] = 1;
-                    f = W.top().second;
-                    double d = dist(q, A[e].first);
-                    if (d < dist(q, A[f].first) || W.size() < ef) {
-                        C.push_back({d, e});
-                        W.push({d, e});
-                        if (W.size() > ef) {
-                            W.pop();
+            layer[LayerIndex].test(c);
+            for (int e : layer[LayerIndex].e[c]) {
+                if (Visited[e] == 0) {
+                    Visited[e] = 1;
+                    f = NearestNeighbors.top().second;
+                    double d = dist(QueryVector, VectorPool[e].first);
+                    if (d < dist(QueryVector, VectorPool[f].first) || NearestNeighbors.size() < ef) {
+                        Candidator.push_back({d, e});
+                        NearestNeighbors.push({d, e});
+                        if (NearestNeighbors.size() > ef) {
+                            NearestNeighbors.pop();
                         }
                     }
                 }
             }
         }
         vector<int> res;
-        while (W.size()) {
-            res.push_back(W.top().second);
-            W.pop();
+        while (NearestNeighbors.size()) {
+            res.push_back(NearestNeighbors.top().second);
+            NearestNeighbors.pop();
         }
         reverse(res.begin(), res.end());
         return res;
     }
 
-    vector<int> select_neighbors_simple(const vector<T> &q, vector<int> &C, int m) {
-        if (C.size() <= m) {
-            return C;
+    vector<int> select_neighbors_simple(const vector<T> &QueryVector, vector<int> &Candidator, int m) {
+        if (Candidator.size() <= m) {
+            return Candidator;
         }
         vector<pair<double, int>> D;
 
-        for (int x : C) {
-            D.push_back({dist(q, A[x].first), x});
+        for (int x : Candidator) {
+            D.push_back({dist(QueryVector, VectorPool[x].first), x});
         }
 
         std ::nth_element(D.begin(), D.begin() + m, D.end());
@@ -126,39 +126,39 @@ class hnsw {
         return res; // 返回可能小于 m 个数 ！！！
     }
 
-    vector<int> select_neighbors_heuristic(vector<T> q, vector<int> &C, int m,
-                                           int lc, int extendCandidates,
+    vector<int> select_neighbors_heuristic(vector<T> QueryVector, vector<int> &Candidator, int m,
+                                           int LayerIndex, int extendCandidates,
                                            int keepPrunedConnections) {
         vector<int> R;
-        std ::set<int> W;
-        for (int x : C) {
-            W.insert(x);
+        std ::set<int> NearestNeighbors;
+        for (int x : Candidator) {
+            NearestNeighbors.insert(x);
         }
         if (extendCandidates) {
-            for (int x : C) {
-                layer[lc].test(x);
-                for (int y : layer[lc].e[x]) {
-                    if (W.find(y) == W.end()) {
-                        W.insert(y);
+            for (int x : Candidator) {
+                layer[LayerIndex].test(x);
+                for (int y : layer[LayerIndex].e[x]) {
+                    if (NearestNeighbors.find(y) == NearestNeighbors.end()) {
+                        NearestNeighbors.insert(y);
                     }
                 }
             }
         }
         std ::set<int> W0;
-        while (W.size() > 0 && R.size() < m) {
-            int e = *W.begin();
-            for (int x : W)
+        while (NearestNeighbors.size() > 0 && R.size() < m) {
+            int e = *NearestNeighbors.begin();
+            for (int x : NearestNeighbors)
                 if (x != e) {
-                    double d = dist(A[x].first, q);
-                    if (d < dist(A[e].first, q)) {
+                    double d = dist(VectorPool[x].first, QueryVector);
+                    if (d < dist(VectorPool[e].first, QueryVector)) {
                         e = x;
                     }
                 }
-            W.erase(e);
+            NearestNeighbors.erase(e);
 
             bool small_all = 0;
             for (int x : R) {
-                if (dist(A[x].first, q) > dist(A[e].first, q)) {
+                if (dist(VectorPool[x].first, QueryVector) > dist(VectorPool[e].first, QueryVector)) {
                     small_all = 1;
                     break;
                 }
@@ -176,8 +176,8 @@ class hnsw {
                 int e = *W0.begin();
                 for (int x : W0)
                     if (x != e) {
-                        double d = dist(A[x].first, q);
-                        if (d < dist(A[e].first, q)) {
+                        double d = dist(VectorPool[x].first, QueryVector);
+                        if (d < dist(VectorPool[e].first, QueryVector)) {
                             e = x;
                         }
                     }
@@ -190,7 +190,7 @@ class hnsw {
     }
 
     bool CheckRebuild() {
-        if (erased.size() > alpha * A.size()) {
+        if (ErasedCookie.size() > alpha * VectorPool.size()) {
             return 1;
         }
         return 0;
@@ -200,8 +200,8 @@ class hnsw {
         debug("rebuilding !\n");
         layer.clear();
         id2pos.clear();
-        auto rec = A;
-        A.clear();
+        auto rec = VectorPool;
+        VectorPool.clear();
         enter_point = 0;
         layer.resize(1);
 
@@ -211,25 +211,25 @@ class hnsw {
             }
         }
 
-        erased.clear();
+        ErasedCookie.clear();
         debug("rebuild finished !\n");
     }
 
-    vector<vector<T>> k_nn_search(const vector<T> &q, int K, int ef = efConstruction) {
+    vector<vector<T>> k_nn_search(const vector<T> &QueryVector, int K, int ef = efConstruction) {
         vector<vector<T>> res;
         int nowcnt = K;
-        if (A.size() < K) {
-            for (auto &x : A) {
+        if (VectorPool.size() < K) {
+            for (auto &x : VectorPool) {
                 if (! IsErased(x.second)) res.push_back(x.first);
             }
             return res;
         }
         while (1) {
-            auto res2 = k_nn_search_no_erase(q, nowcnt, ef);
+            auto res2 = k_nn_search_no_erase(QueryVector, nowcnt, ef);
 
             int cnt = 0;
             for (auto x : res2) {
-                if (! IsErased(A[x].second)) {
+                if (! IsErased(VectorPool[x].second)) {
                     res.push_back(x);
                     cnt++;
                 }
@@ -247,43 +247,43 @@ class hnsw {
         return res;
     }
 
-    vector<vector<T>> k_nn_search_no_erase(const vector<T> &q, int K, int ef = efConstruction) {
-        vector<int> W;
-        int ep = 0;
+    vector<vector<T>> k_nn_search_no_erase(const vector<T> &QueryVector, int K, int ef = efConstruction) {
+        vector<int> NearestNeighbors;
+        int EnterPoint = 0;
         for (int i = layer.size() - 1; i >= 1; i--) {
-            W = search_layer(q, ep, ef, i);
-            ep = W[0];
+            NearestNeighbors = search_layer(QueryVector, EnterPoint, ef, i);
+            EnterPoint = NearestNeighbors[0];
         }
-        W = search_layer(q, ep, ef, 0);
-        W.resize(K);
+        NearestNeighbors = search_layer(QueryVector, EnterPoint, ef, 0);
+        NearestNeighbors.resize(K);
         vector<vector<T>> res;
-        for (int x : W) {
-            res.push_back(A[x].first);
+        for (int x : NearestNeighbors) {
+            res.push_back(VectorPool[x].first);
         }
         return res;
     }
 
-    vector<ull> k_nn_search_cookie_no_erase(const vector<T> &q, int K, int ef = efConstruction) {
-        vector<int> W;
-        int ep = 0;
+    vector<ull> k_nn_search_cookie_no_erase(const vector<T> &QueryVector, int K, int ef = efConstruction) {
+        vector<int> NearestNeighbors;
+        int EnterPoint = 0;
         for (int i = layer.size() - 1; i >= 1; i--) {
-            W = search_layer(q, ep, ef, i);
-            ep = W[0];
+            NearestNeighbors = search_layer(QueryVector, EnterPoint, ef, i);
+            EnterPoint = NearestNeighbors[0];
         }
-        W = search_layer(q, ep, ef, 0);
-        W.resize(K);
+        NearestNeighbors = search_layer(QueryVector, EnterPoint, ef, 0);
+        NearestNeighbors.resize(K);
         vector<ull> res;
-        for (int x : W) {
-            res.push_back(A[x].second);
+        for (int x : NearestNeighbors) {
+            res.push_back(VectorPool[x].second);
         }
         return res;
     }
 
-    vector<double> get_min_kth_dist_no_erase(const vector<T> &q, int K) {
-        auto res = k_nn_search_cookie(q, K, efConstruction);
+    vector<double> get_min_kth_dist_no_erase(const vector<T> &QueryVector, int K) {
+        auto res = k_nn_search_cookie(QueryVector, K, efConstruction);
         vector<double> res2;
         for (auto x : res) {
-            res2.push_back(dist(q, A[id2pos[x]].first));
+            res2.push_back(dist(QueryVector, VectorPool[id2pos[x]].first));
         }
         return res2;
     }
@@ -307,7 +307,7 @@ class hnsw {
             std ::chrono ::steady_clock ::now().time_since_epoch().count());
         enter_point = 0;
         layer.resize(1);
-        A.reserve(len);
+        VectorPool.reserve(len);
     }
 
     ~hnsw() {
@@ -319,7 +319,7 @@ class hnsw {
         if (IsErased(id)) {
             return 0;
         }
-        erased.insert(id);
+        ErasedCookie.insert(id);
         if (CheckRebuild()) {
             rebuild();
         }
@@ -328,17 +328,17 @@ class hnsw {
 
     
 
-    vector<ull> k_nn_search_cookie(const vector<T> &q, int K, int ef = efConstruction) {
+    vector<ull> k_nn_search_cookie(const vector<T> &QueryVector, int K, int ef = efConstruction) {
         vector<ull> res;
-        if (A.size() < K) {
-            for (auto &x : A) {
+        if (VectorPool.size() < K) {
+            for (auto &x : VectorPool) {
                 if (! IsErased(x.second)) res.push_back(x.second);
             }
             return res;
         }
         int nowcnt = K;
         while (1) {
-            auto res2 = k_nn_search_cookie_no_erase(q, nowcnt, ef);
+            auto res2 = k_nn_search_cookie_no_erase(QueryVector, nowcnt, ef);
 
             int cnt = 0;
             for (auto x : res2) {
@@ -363,15 +363,15 @@ class hnsw {
 
     
 
-    vector<double> get_min_kth_dist(const vector<T> &q, int K) {
+    vector<double> get_min_kth_dist(const vector<T> &QueryVector, int K) {
         int nowcnt = K;
         while (1) {
-            auto res = k_nn_search_cookie(q, K, efConstruction);
+            auto res = k_nn_search_cookie(QueryVector, K, efConstruction);
             int cnt = 0;
             vector<double> res2;
             for (auto x : res) {
                 if (! IsErased(x)) {
-                    res2.push_back(dist(q, A[id2pos[x]].first));
+                    res2.push_back(dist(QueryVector, VectorPool[id2pos[x]].first));
                     cnt++;
                 }
                 if (cnt == K) {
@@ -391,15 +391,15 @@ class hnsw {
     void save_data(string FILE_NAME) {
         debug("Saving Data...\n");
         std ::ofstream out(FILE_NAME);
-        out << A.size() << " " << A[0].first.size() << "\n";
-        for (auto &x : A) {
+        out << VectorPool.size() << " " << VectorPool[0].first.size() << "\n";
+        for (auto &x : VectorPool) {
             for (auto y : x.first) {
                 out << y << " ";
             }
             out << x.second << "\n";
         }
-        out << erased.size() << "\n";
-        for (auto x : erased) {
+        out << ErasedCookie.size() << "\n";
+        for (auto x : ErasedCookie) {
             out << x << "\n";
         }
         out << layer.size() << "\n";
@@ -430,21 +430,21 @@ class hnsw {
         std ::ifstream in(FILE_NAME);
         int n, dim;
         in >> n >> dim;
-        A.resize(n);
+        VectorPool.resize(n);
         for (int i = 0; i < n; i++) {
-            A[i].first.resize(dim);
+            VectorPool[i].first.resize(dim);
             for (int j = 0; j < dim; j++) {
-                in >> A[i].first[j];
+                in >> VectorPool[i].first[j];
             }
-            in >> A[i].second;
-            id2pos[A[i].second] = i;
+            in >> VectorPool[i].second;
+            id2pos[VectorPool[i].second] = i;
         }
         int m;
         in >> m;
         for (int i = 0; i < m; i++) {
             ull x;
             in >> x;
-            erased.insert(x);
+            ErasedCookie.insert(x);
         }
         int l;
         in >> l;
@@ -476,60 +476,60 @@ class hnsw {
         debug("Data Read!\n");
     }
 
-    ull insert(const vector<T> &q, ull Cookie = 0) {  // cookie = 0 表示 cookie 未知
+    ull insert(const vector<T> &QueryVector, ull Cookie = 0) {  // cookie = 0 表示 cookie 未知
         ull cookie;
         if (! Cookie)
             cookie = ++ tot;
         else
             cookie = Cookie;
-        A.push_back( {q, cookie} );
+        VectorPool.push_back( {QueryVector, cookie} );
 
-        id2pos[cookie] = A.size() - 1;
+        id2pos[cookie] = VectorPool.size() - 1;
         
-        if (A.size() == 1) {
+        if (VectorPool.size() == 1) {
             
             return cookie;
         }
 
-        vector<int> W;
-        int ep = enter_point;
+        vector<int> NearestNeighbors;
+        int EnterPoint = enter_point;
         int L = layer.size() - 1;
         int l = GetLayer();
         if (l > L) {
             layer.resize(l + 1);
         }
 
-        for (int lc = L; lc >= l + 1; lc--) {
-            W = search_layer(q, ep, efConstruction, lc);
-            ep = W[0];
+        for (int LayerIndex = L; LayerIndex >= l + 1; LayerIndex--) {
+            NearestNeighbors = search_layer(QueryVector, EnterPoint, efConstruction, LayerIndex);
+            EnterPoint = NearestNeighbors[0];
         }
 
-        for (int lc = std ::min(L, l); lc >= 0; lc--) {
-            W = search_layer(q, ep, efConstruction, lc);
+        for (int LayerIndex = std ::min(L, l); LayerIndex >= 0; LayerIndex--) {
+            NearestNeighbors = search_layer(QueryVector, EnterPoint, efConstruction, LayerIndex);
 
             vector<int> neighbors =
-                std ::move(select_neighbors_simple(q, W, Mmax));
+                std ::move(select_neighbors_simple(QueryVector, NearestNeighbors, Mmax));
 
             for (int x : neighbors) {
-                layer[lc].test(x);
-                layer[lc].test(A.size() - 1);
-                layer[lc].e[x].push_back(A.size() - 1);
-                layer[lc].e[A.size() - 1].push_back(x);
+                layer[LayerIndex].test(x);
+                layer[LayerIndex].test(VectorPool.size() - 1);
+                layer[LayerIndex].e[x].push_back(VectorPool.size() - 1);
+                layer[LayerIndex].e[VectorPool.size() - 1].push_back(x);
             }
 
             for (int e : neighbors) {
 
-                layer[lc].test(e);
-                auto &eConn = layer[lc].e[e];
+                layer[LayerIndex].test(e);
+                auto &eConn = layer[LayerIndex].e[e];
                 if (eConn.size() > Mmax) {
                     eConn =
-                        std ::move(select_neighbors_simple(A[e].first, eConn, Mmax));
+                        std ::move(select_neighbors_simple(VectorPool[e].first, eConn, Mmax));
                 }
             }
-            ep = W[0];
+            EnterPoint = NearestNeighbors[0];
         }
         if (l > L) {
-            enter_point = A.size() - 1;
+            enter_point = VectorPool.size() - 1;
         }
 
         return cookie;
