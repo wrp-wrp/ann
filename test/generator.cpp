@@ -2,14 +2,14 @@
 
 using namespace std;
 
-mt19937 myrand(time(nullptr));
+mt19937 myrand(114514);
 #define endl '\n'
 
-const int dim = 20; // 维度
-const int N = 2000; // 向量数
-const int MaxVal = 1e4;
-const int Max_Testcase = 5000;
-const int Max_K = 5;
+const int dim = 5; // 维度
+const int N = 5000; // 向量数
+const int MaxVal = 1e6;
+const int Max_Testcase = 500;
+const int Max_K = 20;
 
 int main() {
     ios :: sync_with_stdio(0);
@@ -27,7 +27,7 @@ int main() {
         int k = myrand() % Max_K + 1;
         cout << k << endl;
         for (int j = 0; j < dim; j++) {
-            cout << myrand() % MaxVal * 1.0 /  MaxVal << " ";
+            cout << myrand() % MaxVal << " ";
         }
         cout << endl;
     }

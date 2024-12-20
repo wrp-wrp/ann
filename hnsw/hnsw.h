@@ -12,7 +12,7 @@ using std ::vector;
 using std ::mt19937;
 using std ::string;
 
-const int efConstruction = 100;
+const int efConstruction = 30;
 const double alpha = 0.3;
 
 template <typename ValueType = int>
@@ -21,7 +21,7 @@ class hnsw {
     using T = ValueType;
     using ull = unsigned long long;
     using IT = typename std ::vector<T> ::iterator;
-    const int M = 50;
+    const int M = 200;
     const int Mmax = M;
     const int Mmax0 = M * 2;
     const double Ml = 1 / log(M);
@@ -46,9 +46,9 @@ class hnsw {
         assert(Ml * r >= 0);
         return (int)(Ml * r);
     }
-    inline double dist(const vector<T> &a, const vector<T> &b) {
+    inline long long dist(const vector<T> &a, const vector<T> &b) {
         auto Ap = a.data(), Bp = b.data(); int len = a.size();
-        double res = 0;
+        long long res = 0;
         //#pragma GCC unroll 16
         for (int i = 0; i < len; i ++)
             res += 1LL * (Ap[i] - Bp[i]) * (Ap[i] - Bp[i]);
