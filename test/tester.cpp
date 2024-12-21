@@ -1,6 +1,6 @@
 #include <bits/stdc++.h>
 #include "../hnsw/hnsw.h"
-#include "brute.h"
+#include "../brute/brute.h"
 
 #define debug(...) fprintf(stderr, __VA_ARGS__), fflush(stderr)
 
