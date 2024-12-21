@@ -1,6 +1,4 @@
 #include <bits/stdc++.h>
-#include <omp.h>
-
 namespace BruteForce {
     #define debug(...) fprintf(stderr, __VA_ARGS__), fflush(stderr)
 

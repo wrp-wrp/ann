@@ -1,10 +1,8 @@
-# 一个 Anns 相关算法学习库
+# HNSW 算法学习库
 
-随机更新一些学了的算法的简单 c++ 实现。
+HNSW 算法的简单 c++ 实现。
 
-目前已实现 ：
-
-+ hnsw 算法
+使用 C++ 简单实现了 HNSW 算法和朴素的循环算法， 并在 test 中进行了效率测试。
 
 
 
@@ -34,7 +32,7 @@
 
 ## test
 
-test 部分在随机数据下与朴素循环算法进行正确性比对。应当注意比对应使用 `int` 类型。
+test 部分在随机数据下与朴素循环算法进行正确性比对。应当注意比对应使用 `int/long long` 类型以方便比较， 调用库的时候使用 ```double``` 也是可行的。
 
 
 
@@ -42,4 +40,4 @@ test 部分在随机数据下与朴素循环算法进行正确性比对。应当
 
 算法在如下项目中被使用 ：
 
-+ [一个简单的文件查询系统](https://github.com/FutureHasTomorrow/Vectri/tree/main)
++ [一个简单的文件查询系统-Vectri](https://github.com/FutureHasTomorrow/Vectri/tree/main)

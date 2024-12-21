@@ -12,13 +12,9 @@ int main() {
 
     hnsw<int> hnsw_sol;
     brute brute_sol;
-
     int n, dim;
     std :: cin >> n >> dim;
-    //std :: cout << n << " " << dim << std :: endl;
-
     const std :: string FILE_NAME = "data.txt";
-    //hnsw_sol.read_data(FILE_NAME);
 
     clock_t start, end;
     clock_t bf_building_time = 0, hnsw_building_time = 0;
@@ -72,9 +68,7 @@ int main() {
         double pnt = per / k;
         for (auto x : res2) {
             bool ok = 0;
-            //std :: cerr << x << " ";
             for (auto y : res) {
-                //std :: cerr << x << " " << (long long) y << "\n";
                 if (x == (long long) y) {
                     ok = 1;
                     break;
@@ -95,9 +89,5 @@ int main() {
     debug ("Finished Query! \n HNSW Time: %lf\n Brute Time: %lf\n", 1.0 * hnsw_query_time / CLOCKS_PER_SEC, 1.0 * bf_query_time / CLOCKS_PER_SEC);
 
     std :: cout << hnsw_query_time / divclk<< ' ' << bf_query_time/ divclk << std :: endl;
-
-    //std :: cout << "Score: " << score << "\n";
-    //std :: cout << n << " " << score << "\n";
-    
     return 0;
 }

@@ -326,8 +326,6 @@ class hnsw {
         return true;
     }
 
-    
-
     vector<ull> k_nn_search_cookie(const vector<T> &QueryVector, int K, int ef = efConstruction) {
         vector<ull> res;
         if (VectorPool.size() < K) {
